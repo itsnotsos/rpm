@@ -1,0 +1,46 @@
+name: Update .spec
+
+on:
+  schedule:
+    - cron: "0 */2 * * *"
+  workflow_dispatch:
+
+jobs:
+  update-spec:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Fetch latest release tag
+        id: fetch_tag
+        run: |
+          latest_tag=$(curl -s https://api.github.com/repos/kukuruzka165/materialgram/releases/latest | jq -r .tag_name)
+          echo "Latest tag: $latest_tag"
+          echo "tag=${latest_tag#v}" >> $GITHUB_ENV
+
+      - name: Check for version update
+        id: check_update
+        run: |
+          current_version=$(grep -E '^Version:' materialgram.spec | awk '{print $2}')
+          echo "Current version: $current_version"
+          if [[ "$current_version" == "$tag" ]]; then
+            echo "The version is up-to-date."
+            echo "update_needed=false" >> $GITHUB_ENV
+          else
+            echo "A new version is available."
+            echo "update_needed=true" >> $GITHUB_ENV
+          fi
+
+      - name: Update .spec file
+        if: env.update_needed == 'true'
+        run: |
+          git clone https://${{ secrets.PAT }}@github.com/burhancodes/materialgram-rpm repo
+          cd repo
+          sed -i "s/^Version:.*/Version:        ${tag}/" materialgram.spec
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add materialgram.spec
+          git commit -m "Updated to version ${tag}"
+          git push
