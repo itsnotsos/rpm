@@ -17,6 +17,10 @@ jobs:
         id: fetch_tag
         run: |
           latest_tag=$(curl -s https://api.github.com/repos/kukuruzka165/materialgram/releases/latest | jq -r .tag_name)
+          if [[ -z "$latest_tag" || "$latest_tag" == "null" ]]; then
+            echo "Error: Failed to fetch the latest tag." >&2
+            exit 1
+          fi
           echo "Latest tag: $latest_tag"
           echo "tag=${latest_tag#v}" >> $GITHUB_ENV
 
@@ -25,9 +29,11 @@ jobs:
         run: |
           current_version=$(grep -E '^Version:' materialgram.spec | awk '{print $2}')
           echo "Current version: $current_version"
+          echo "Latest tag (sanitized): $tag"
           if [[ "$current_version" == "$tag" ]]; then
             echo "The version is up-to-date."
             echo "update_needed=false" >> $GITHUB_ENV
+            exit 1
           else
             echo "A new version is available."
             echo "update_needed=true" >> $GITHUB_ENV
