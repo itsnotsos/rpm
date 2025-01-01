@@ -17,6 +17,11 @@ Author: kukuruzka  <kukuruzka165@github.com>
 %prep
 tar -xvf %{_sourcedir}/materialgram-v%{version}.tar.gz -C %{_sourcedir}
 cd %{_sourcedir}/
+# Fix for Mageia 8
+%if 0%{?mageia_version} == 8
+    sed -i 's/^SingleMainWindow=/X-SingleMainWindow=/' \
+        %{buildroot}/usr/share/applications/io.github.kukuruzka165.materialgram.desktop
+%endif
 
 %build
 
