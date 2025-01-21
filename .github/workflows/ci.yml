@@ -15,7 +15,7 @@ jobs:
       - name: Fetch latest release tag
         id: fetch_tag
         run: |
-          latest_tag=$(curl -s https://api.github.com/repos/kukuruzka165/materialgram/releases/latest | jq -r .tag_name)
+          latest_tag=$(curl -s https://api.github.com/repos/FajoX1/fagramdesktop/releases/latest | jq -r .tag_name)
           if [[ -z "$latest_tag" || "$latest_tag" == "null" ]]; then
             echo "Error: Failed to fetch the latest tag." >&2
             exit 1
@@ -26,7 +26,7 @@ jobs:
       - name: Check for version update
         id: check_update
         run: |
-          current_version=$(grep -E '^Version:' materialgram.spec | awk '{print $2}')
+          current_version=$(grep -E '^Version:' fagram.spec | awk '{print $2}')
           echo "Current version: $current_version"
           echo "Latest tag (sanitized): $tag"
           if [[ "$current_version" == "$tag" ]]; then
@@ -41,11 +41,11 @@ jobs:
       - name: Update .spec file
         if: env.update_needed == 'true'
         run: |
-          git clone https://${{ secrets.PAT }}@github.com/burhancodes/materialgram-rpm repo
+          git clone https://${{ secrets.PAT }}@github.com/burhancodes/fagram-rpm repo
           cd repo
-          sed -i "s/^Version:.*/Version:        ${tag}/" materialgram.spec
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          git add materialgram.spec
+          sed -i "s/^Version:.*/Version:        ${tag}/" fagram.spec
+          git config --global user.name "burhanverse"
+          git config --global user.email "contact@burhanverse.eu.org"
+          git add fagram.spec
           git commit -m "Updated to version ${tag}"
           git push
