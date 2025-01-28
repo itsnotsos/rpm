@@ -23,6 +23,27 @@ jobs:
           echo "Latest tag: $latest_tag"
           echo "tag=${latest_tag#v}" >> $GITHUB_ENV
 
+      - name: Check for tarball availability
+        id: check_tarball
+        run: |
+          version=${{ env.tag }}
+          tarball_url="https://github.com/FajoX1/fagramdesktop/releases/download/v${version}/fagram-v${version}.tar.gz"
+          echo "Checking availability of tarball: $tarball_url"
+          retries=5
+          interval=1800 # 30 minutes in seconds
+          for ((i=1; i<=retries; i++)); do
+          echo "Attempt $i of $retries..."
+          response=$(curl -o /dev/null -s -w "%{http_code}" "$tarball_url")
+          if [[ "$response" == "200" ]]; then
+            echo "Tarball is available: $tarball_url"
+            exit 0
+          fi
+          echo "Tarball not found. Retrying in $interval seconds..."
+          sleep $interval
+          done
+          echo "Error: Tarball is not available after $retries attempts." >&2
+          exit 1
+
       - name: Check for version update
         id: check_update
         run: |
