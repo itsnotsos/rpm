@@ -27,22 +27,23 @@ jobs:
           echo "Sanitized tag: $sanitized_tag"
           echo "tag=$sanitized_tag" >> $GITHUB_ENV
 
-      - name: Download artifact using GitHub API
+      - name: Download artifact from recent Linux workflow
         id: download_artifact
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p ./artifacts
           
-          echo "Finding workflow runs for tag v${{ env.tag }}"
+          echo "Finding recent Linux workflow runs..."
+          # Get all workflow runs without filtering by branch/tag
           workflow_runs=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            "https://api.github.com/repos/FajoX1/fagramdesktop/actions/runs?event=push&branch=refs/tags/v${{ env.tag }}")
+            "https://api.github.com/repos/FajoX1/fagramdesktop/actions/workflows/linux.yml/runs?status=success&per_page=10")
           
-          # Get the workflow run ID for linux.yml
-          run_id=$(echo "$workflow_runs" | jq '.workflow_runs[] | select(.name=="Linux Build") | .id' | head -n 1)
+          # Get the most recent successful workflow run ID
+          run_id=$(echo "$workflow_runs" | jq '.workflow_runs[0].id')
           
           if [ -z "$run_id" ] || [ "$run_id" == "null" ]; then
-            echo "Error: Could not find workflow run for tag v${{ env.tag }}"
+            echo "Error: Could not find any successful Linux workflow runs"
             exit 1
           fi
           
@@ -52,19 +53,18 @@ jobs:
           artifacts=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
             "https://api.github.com/repos/FajoX1/fagramdesktop/actions/runs/$run_id/artifacts")
           
-          # Find the artifact using the correct naming format
-          artifact_name="fagram-v${{ env.tag }}"
-          echo "Looking for artifact named: $artifact_name"
-          
-          artifact_id=$(echo "$artifacts" | jq --arg name "$artifact_name" '.artifacts[] | select(.name==$name) | .id' | head -n 1)
-          artifact_url=$(echo "$artifacts" | jq --arg name "$artifact_name" -r '.artifacts[] | select(.name==$name) | .archive_download_url' | head -n 1)
+          # Find the most recent artifact (regardless of name)
+          artifact_id=$(echo "$artifacts" | jq '.artifacts[0].id')
+          artifact_url=$(echo "$artifacts" | jq -r '.artifacts[0].archive_download_url')
+          artifact_name=$(echo "$artifacts" | jq -r '.artifacts[0].name')
           
           if [ -z "$artifact_id" ] || [ "$artifact_id" == "null" ]; then
-            echo "Error: Could not find $artifact_name artifact"
+            echo "Error: Could not find any artifacts in the workflow run"
             exit 1
           fi
           
           echo "Found artifact ID: $artifact_id"
+          echo "Artifact name: $artifact_name"
           echo "Artifact URL: $artifact_url"
           
           # Download the artifact
