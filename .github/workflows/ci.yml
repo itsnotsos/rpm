@@ -27,35 +27,69 @@ jobs:
           echo "Sanitized tag: $sanitized_tag"
           echo "tag=$sanitized_tag" >> $GITHUB_ENV
 
-      - name: Download artifact from tag workflow run
+      - name: Download artifact using GitHub API
         id: download_artifact
-        uses: dawidd6/action-download-artifact@master
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          workflow: linux.yml
-          workflow_conclusion: success
-          repo: FajoX1/fagramdesktop
-          name: fagram-linux
-          path: ./artifacts
-          tag: ${{ env.tag }}
-          check_artifacts: true
-          search_artifacts: true
-          if_no_artifact_found: fail
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p ./artifacts
+          
+          echo "Finding workflow runs for tag v${{ env.tag }}"
+          workflow_runs=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.com/repos/FajoX1/fagramdesktop/actions/runs?event=push&branch=refs/tags/v${{ env.tag }}")
+          
+          # Get the workflow run ID for linux.yml
+          run_id=$(echo "$workflow_runs" | jq '.workflow_runs[] | select(.name=="Linux Build") | .id' | head -n 1)
+          
+          if [ -z "$run_id" ] || [ "$run_id" == "null" ]; then
+            echo "Error: Could not find workflow run for tag v${{ env.tag }}"
+            exit 1
+          fi
+          
+          echo "Found workflow run ID: $run_id"
+          
+          # Get artifacts for the workflow run
+          artifacts=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.com/repos/FajoX1/fagramdesktop/actions/runs/$run_id/artifacts")
+          
+          # Find the artifact using the correct naming format
+          artifact_name="fagram-v${{ env.tag }}"
+          echo "Looking for artifact named: $artifact_name"
+          
+          artifact_id=$(echo "$artifacts" | jq --arg name "$artifact_name" '.artifacts[] | select(.name==$name) | .id' | head -n 1)
+          artifact_url=$(echo "$artifacts" | jq --arg name "$artifact_name" -r '.artifacts[] | select(.name==$name) | .archive_download_url' | head -n 1)
+          
+          if [ -z "$artifact_id" ] || [ "$artifact_id" == "null" ]; then
+            echo "Error: Could not find $artifact_name artifact"
+            exit 1
+          fi
+          
+          echo "Found artifact ID: $artifact_id"
+          echo "Artifact URL: $artifact_url"
+          
+          # Download the artifact
+          echo "Downloading artifact..."
+          curl -L -o ./artifacts/artifact.zip \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "$artifact_url"
+          
+          echo "Download complete!"
 
       - name: Extract tarball from artifact
         id: extract_tarball
         run: |
-          mkdir -p ${{ github.workspace }}/_tarball
+          mkdir -p ${{ github.workspace }}/tarball
           
           # Find the downloaded zip artifact
           artifact=$(find ./artifacts -type f | head -n 1)
           echo "Found artifact: $artifact"
           
           # Extract the zip to get the tarball
-          unzip -j "$artifact" "*.tar.gz" -d ${{ github.workspace }}/_tarball/
+          unzip -j "$artifact" "*.tar.gz" -d ${{ github.workspace }}/tarball/
           
           # Find the extracted tarball
-          tarball=$(find ${{ github.workspace }}/_tarball -name "*.tar.gz" | head -n 1)
+          tarball=$(find ${{ github.workspace }}/tarball -name "*.tar.gz" | head -n 1)
           
           if [[ -z "$tarball" ]]; then
             echo "Error: No tarball found in the artifact" >&2
