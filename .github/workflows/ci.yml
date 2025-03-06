@@ -113,9 +113,13 @@ jobs:
           git clone https://${{ secrets.PAT }}@github.com/burhancodes/fagram-rpm repo
           cd repo
           sed -i "s/^Version:.*/Version:        ${{ env.tag }}/" fagram.spec
+          mkdir -p tarball
+          tarball_name="fagram-v${{ env.tag }}.tar.gz"
+          cp "${{ env.tarball_path }}" "tarball/${tarball_name}"
           git config --global user.name "burhanverse"
           git config --global user.email "contact@burhanverse.eu.org"
-          git add fagram.spec tarball
+          git add fagram.spec
+          git add tarball/*.tar.gz
           git commit -m "Updated to version ${{ env.tag }}"
           git push
 
