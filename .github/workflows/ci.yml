@@ -39,7 +39,6 @@ jobs:
           workflow_runs=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
             "https://api.github.com/repos/FajoX1/fagramdesktop/actions/workflows/linux.yml/runs?status=success&per_page=10")
           
-          # Get the most recent successful workflow run ID
           run_id=$(echo "$workflow_runs" | jq '.workflow_runs[0].id')
           
           if [ -z "$run_id" ] || [ "$run_id" == "null" ]; then
@@ -49,11 +48,9 @@ jobs:
           
           echo "Found workflow run ID: $run_id"
           
-          # Get artifacts for the workflow run
           artifacts=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
             "https://api.github.com/repos/FajoX1/fagramdesktop/actions/runs/$run_id/artifacts")
           
-          # Find the most recent artifact (regardless of name)
           artifact_id=$(echo "$artifacts" | jq '.artifacts[0].id')
           artifact_url=$(echo "$artifacts" | jq -r '.artifacts[0].archive_download_url')
           artifact_name=$(echo "$artifacts" | jq -r '.artifacts[0].name')
@@ -67,7 +64,6 @@ jobs:
           echo "Artifact name: $artifact_name"
           echo "Artifact URL: $artifact_url"
           
-          # Download the artifact
           echo "Downloading artifact..."
           curl -L -o ./artifacts/artifact.zip \
             -H "Authorization: token $GITHUB_TOKEN" \
@@ -81,14 +77,10 @@ jobs:
         run: |
           mkdir -p ${{ github.workspace }}/tarball
           
-          # Find the downloaded zip artifact
           artifact=$(find ./artifacts -type f | head -n 1)
           echo "Found artifact: $artifact"
-          
-          # Extract the zip to get the tarball
           unzip -j "$artifact" "*.tar.gz" -d ${{ github.workspace }}/tarball/
           
-          # Find the extracted tarball
           tarball=$(find ${{ github.workspace }}/tarball -name "*.tar.gz" | head -n 1)
           
           if [[ -z "$tarball" ]]; then
@@ -113,6 +105,7 @@ jobs:
           else
             echo "A new version is available."
             echo "update_needed=true" >> $GITHUB_ENV
+          fi
 
       - name: Update .spec file
         if: env.update_needed == 'true' && env.tarball_available == 'true'
@@ -122,7 +115,7 @@ jobs:
           sed -i "s/^Version:.*/Version:        ${{ env.tag }}/" fagram.spec
           git config --global user.name "burhanverse"
           git config --global user.email "contact@burhanverse.eu.org"
-          git add fagram.spec
+          git add fagram.spec tarball
           git commit -m "Updated to version ${{ env.tag }}"
           git push
 
